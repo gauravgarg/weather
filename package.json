@@ -1,0 +1,20 @@
+{
+  "name": "weather",
+  "version": "0.1.2",
+  "description": "five day weather forecast sample app exercise",
+  "main": "server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node server",
+    "deploy": "surge -p www -d weather.surge.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Gaurav Garg",
+  "license": "ISC",
+  "devDependencies": {
+    "express": "^4.14.0"
+  }
+}

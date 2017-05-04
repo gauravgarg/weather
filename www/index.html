@@ -1,0 +1,271 @@
+<!-- HTML 5 doctype for enavling modern dev features -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- scale correctly on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Weather App</title>
+    <!-- use bootstrap (more specifically bootswatch) for css reset/grid/buttons/table -->
+    <!-- bootswatch themes available: cyborg,journal,readable,spacelab,darkly,lumen,sandstone,superhero,cerulean,flatly,simplex,united,cosmo,paper,slate,yeti -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/g/bootswatch(flatly/bootstrap.min.css),chartist.js(chartist.min.css)">
+    <style>
+    /* global overrides/resets/browser-hacks */
+    
+    body {
+        margin-top: 1em;
+    }
+    /* top level rules */
+    
+    .container {
+        min-width: 320px;
+    }
+    /* namespaced module (in this case section) rules */
+    
+    .section-chart .ct-label.ct-horizontal {
+        /* prevent labels from wrapping too soon */
+        white-space: nowrap;
+    }
+
+    .section-chart .ct-line {
+        stroke-width: 2px;
+    }
+    
+    .section-chart .ct-point {
+        stroke-width: 5px;
+    }
+    </style>
+    <!-- template used to populate summary table -->
+    <script type='text/template' id="summary-table-rows-template">
+        <% for(var i in rows) { %>
+            <tr>
+                <td>
+                    <%= rows[i].when %>
+                </td>
+                <td>
+                    <%= rows[i].descrition %>
+                </td>
+                <td>
+                    <%= rows[i].temp %>
+                </td>
+                <td>
+                    <%= rows[i].wind %>
+                </td>
+            </tr>
+            <% } %>
+    </script>
+</head>
+
+<body>
+    <!-- set app wide container to handle global margins -->
+    <div class="container">
+        <!-- define main sections as rows, identify each with class `section` and own unique class too -->
+        <div class="row section section-header">
+            <!-- always fill full width with content  -->
+            <div class="col-sm-12">
+                <h1>Gurgaon(Haryana)</h1>
+            </div>
+        </div>
+        <div class="row section section-chart">
+            <div class="col-sm-12">
+                <div class="ct-chart"></div>
+            </div>
+        </div>
+        <div class="row section section-nav">
+            <!-- fill full width until 992px width, then constrain to 8 columns and center content -->
+            <div class="col-md-8 col-md-push-2 col-sm-12">
+                <div class="btn-group btn-group-justified" role="group" aria-label="metrics">
+                    <div class="btn-group btn-group-xs" role="group">
+                        <button type="button" class="btn btn-default metric-selector select-temperature active">Temperature</button>
+                    </div>
+                    <div class="btn-group btn-group-xs" role="group">
+                        <button type="button" class="btn btn-default metric-selector select-wind">Wind</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row section section-summary">
+            <div class="col-sm-12">
+                <!-- table skeleton to be populated by retrieved data -->
+                <table class="table table-striped summary-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Forecast</th>
+                            <th>Temp (˚C)</th>
+                            <th>Wind</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- chance,trianglify,momentjs,sugar,knockout,bootstrap,lodash,hammerjs,chartist.js,ion.rangeslider,issuemd -->
+    <script src="//cdn.jsdelivr.net/g/jquery@2,underscorejs,chartist.js,momentjs"></script>
+    <script>
+    /* wait until document ready event */
+    $(function() {
+
+        // get api data for Addis Ababa
+        $.get('http://api.openweathermap.org/data/2.5/forecast\?id\=1270642\&units=metric\&appid\=bfc5d2d41ff861aeb2db3bd581d7e4b6', function(input) {
+
+            // setup data template
+            var data = {
+                hammer: [],
+                rain: {
+                    max: 0,
+                    min: Infinity,
+                    series: {
+                        name: 'precipitation',
+                        data: []
+                    }
+                },
+                temp: {
+                    max: 0,
+                    min: Infinity,
+                    series: {
+                        name: 'temperature',
+                        data: []
+                    }
+                },
+                wind: {
+                    max: 0,
+                    min: Infinity,
+                    series: {
+                        name: 'wind',
+                        data: []
+                    }
+                },
+                table: []
+            };
+
+            // loop through fetched data from api, building our mapped data object
+            _.each(input.list, function(item, i) {
+
+                // push items onto each series for use in chart
+                data.hammer.push(item.dt * 1000);
+                //data.rain.series.data.push(item.rain['3h']);
+                data.temp.series.data.push(item.main.temp);
+                data.wind.series.data.push(item.wind.speed);
+
+                // track max and min values for each series
+                // n.b. this info was not used, but is generally useful for summary data, and saves looping through each series again
+
+                if (data.temp.max < item.main.temp) {
+                    data.temp.max = item.main.temp;
+                }
+                if (data.temp.min > item.main.temp) {
+                    data.temp.min = item.main.temp;
+                }
+                if (data.wind.max < item.wind.speed) {
+                    data.wind.max = item.wind.speed;
+                }
+                if (data.wind.min > item.wind.speed) {
+                    data.wind.min = item.wind.speed;
+                }
+
+                // build data to populate summary table
+                data.table.push({
+                    when: moment(item.dt * 1000).format('lll'),
+                    descrition: item.weather[0].description,
+                    temp: item.main.temp,
+                    //rain: item.rain['3h'],
+                    wind: item.wind.speed
+                });
+
+            });
+
+            // remembder last date (for use in loop to determine if day has changed)
+            var last = moment();
+
+            // navigation click handlers
+            $(document).on('click', '.select-temperature', function() {
+                $('.metric-selector').removeClass('active');
+                $('.select-temperature').addClass('active');
+                handleNav('temp');
+            });
+
+            $(document).on('click', '.select-precipitation', function() {
+                $('.metric-selector').removeClass('active');
+                $('.select-precipitation').addClass('active');
+                handleNav('rain');
+            });
+
+            $(document).on('click', '.select-wind', function() {
+                $('.metric-selector').removeClass('active');
+                $('.select-wind').addClass('active');
+                handleNav('wind');
+            });
+
+            // define chart options here so it can be passed into both chart init and update functions
+            var chartOptions = {
+                    series: {
+                        'precipitation': {
+                            lineSmooth: Chartist.Interpolation.step(),
+                            showArea: true,
+                            showPoint: false
+                        },
+                        'temperature': {
+                            showArea: true
+                        },
+                        'wind': {
+                            showPoint: false
+                        }
+                    },
+                    axisX: {
+                        labelInterpolationFnc: function(label, index) {
+                            var m = moment(label),
+                                mylabel = null;
+                            // only draw one in three x axis labels, using short time format
+                            if (index % 3 === 0) {
+                                mylabel = m.format('h:mm a');
+                                // if date changes, write day name to label
+                                if (m.dayOfYear() !== last.dayOfYear()) {
+                                    mylabel += '\n' + m.format('dddd');
+                                    last = m;
+                                }
+                            }
+                            return mylabel;
+                        }
+                    }
+                },
+                // initialise chart
+                chart = initChart();
+
+            // populate summary table using template defined in head and data built in main data processing loop
+            $('.summary-table tbody').html(_.template($('#summary-table-rows-template').html())({
+                rows: data.table
+            }));
+
+            // imlementation details moved to functions at end of file
+
+            function handleNav(which) {
+                updateChart([data[which].series.data]);
+            }
+
+            function updateChart(series) {
+                chart.update({
+                    labels: data.hammer,
+                    series: series
+                }, chartOptions, true);
+            }
+
+            function initChart(series) {
+
+                return new Chartist.Line('.ct-chart', {
+                    labels: data.hammer,
+                    series: [data.temp.series]
+                }, chartOptions);
+
+            }
+
+        });
+
+    });
+    </script>
+</body>
+
+</html>
